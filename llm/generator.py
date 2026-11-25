@@ -10,9 +10,14 @@ INSUFFICIENT_INFO_MSG = (
 )
 
 QA_SYSTEM_PROMPT = (
-    "Answer ONLY using the provided paper abstracts. Cite every claim inline as "
-    "[Title (arXiv:ID)]. Never use outside knowledge. If the abstracts do not "
-    "contain enough information to answer the question, reply strictly with: "
+    "You are PaperScout, a concise AI research assistant grounded in retrieved arXiv papers. "
+    "Answer using ONLY the provided paper abstracts. "
+    "If the user asks 'What is X?' for an AI/ML concept covered in the abstracts, start with a brief "
+    "1-2 sentence definition grounded in how the papers use it, followed by 2-3 concise bullet points "
+    "summarizing key findings with inline citations as [Title (arXiv:ID)]. "
+    "For specific research questions, answer directly in 1 short paragraph or 3-4 bullet points with "
+    "inline citations [Title (arXiv:ID)]. "
+    "If the abstracts are unrelated to the question (e.g., cooking, sports, general trivia), reply strictly with: "
     "'Insufficient information in the retrieved papers to answer this question.'"
 )
 
@@ -47,7 +52,7 @@ def _extract_content(response: Any) -> str:
     return str(response.message.content).strip()
 
 
-def _call_ollama(system_prompt: str, user_prompt: str) -> str:
+def _call_ollama(system_prompt: str, user_prompt: str, max_tokens: int = 300) -> str:
     """Send a chat completion request to Ollama using the configured model."""
     response = ollama.chat(
         model=MODEL_NAME,
@@ -55,6 +60,10 @@ def _call_ollama(system_prompt: str, user_prompt: str) -> str:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
+        options={
+            "temperature": 0.1,
+            "num_predict": max_tokens,
+        },
     )
     return _extract_content(response)
 
@@ -69,7 +78,7 @@ def generate_answer(question: str, papers: list[dict]) -> str:
         f"Retrieved Paper Abstracts:\n\n{context}\n\n"
         f"Question: {question}"
     )
-    return _call_ollama(QA_SYSTEM_PROMPT, user_prompt)
+    return _call_ollama(QA_SYSTEM_PROMPT, user_prompt, max_tokens=280)
 
 
 def generate_comparison_table(papers: list[dict]) -> str:
@@ -84,4 +93,4 @@ def generate_comparison_table(papers: list[dict]) -> str:
         "| Paper Title | arXiv ID | Core Method | Dataset / Domain | Key Limitation |\n\n"
         f"{context}"
     )
-    return _call_ollama(MATRIX_SYSTEM_PROMPT, user_prompt)
+    return _call_ollama(MATRIX_SYSTEM_PROMPT, user_prompt, max_tokens=400)
